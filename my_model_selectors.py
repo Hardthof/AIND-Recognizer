@@ -163,6 +163,7 @@ class SelectorCV(ModelSelector):
 
         score = float('-inf')
         best_model = None
+        best_n = self.n_constant
         
         if(len(self.sequences) > 1):
             try:
@@ -197,8 +198,8 @@ class SelectorCV(ModelSelector):
                                 pass
                             
                         if(model_n_score > score):
-                            best_model = hmm_model
                             score = model_n_score
+                            best_n = n
                     except:
                         pass
                     
@@ -212,7 +213,6 @@ class SelectorCV(ModelSelector):
             print ('!!!! ireached this code') # code is not reached in first unit test?
             for n in range(self.min_n_components, self.max_n_components + 1):
                 log_total = []
-                hmm_model = None
                 model_n_score = float('-inf')
                 
                 try:
@@ -222,19 +222,14 @@ class SelectorCV(ModelSelector):
                                             random_state = self.random_state,
                                             verbose=False).fit(self.X, self.lengths)
                     logL = hmm_model.score(self.X, self.lengths) 
-                    log_total.append(logL)
-                                
-                    # calcs more often but i don't need to wory about empty scores
-                    model_n_score = np.mean(log_total) 
+                    
+                    if(logL > score):
+                        best_n = n
+                        score = logL
                     
                 except:
                     pass
                 
-                if(model_n_score > score):
-                    best_model = hmm_model
-                    score = model_n_score
-                
-        if best_model is None:
-            return self.base_model(self.n_constant)
+        best_model = self.base_model(best_n)
         
         return best_model
