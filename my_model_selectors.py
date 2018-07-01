@@ -100,10 +100,85 @@ class SelectorDIC(ModelSelector):
 class SelectorCV(ModelSelector):
     ''' select best model based on average log Likelihood of cross-validation folds
 
-    '''
-
+    '''    
     def select(self):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-        # TODO implement model selection using CV
-        raise NotImplementedError
+        score = float('-inf')
+        best_model = None
+        
+        if(len(self.sequences) > 1):
+            try:
+                #print('seq', self.sequences)
+                fold = KFold(min(3, len(self.sequences)))
+                
+                for n in range(self.min_n_components, self.max_n_components + 1):
+                    try:
+                        #print ("A:", n)
+                        log_total = []
+                        hmm_model = None
+                        model_n_score = float('-inf')
+                        
+                        for cv_train_idx, cv_test_idx in fold.split(self.sequences):
+                            train_X, train_lengths = combine_sequences(cv_train_idx, self.sequences)
+                            test_X, test_lengths = combine_sequences(cv_test_idx, self.sequences)
+        
+                            try:
+                                hmm_model = GaussianHMM(n_components = n,
+                                                        covariance_type="diag",
+                                                        n_iter=1000,
+                                                        random_state = self.random_state,
+                                                        verbose=False).fit(train_X, train_lengths)
+                                logL = hmm_model.score(test_X, test_lengths)
+                                log_total.append(logL)
+                                
+                                # calcs more often but i don't need to wory about empty scores
+                                model_n_score = np.mean(log_total)       
+                                
+                            except:
+                                #print('Error in GaussianHMM')
+                                pass
+                            
+                        if(model_n_score > score):
+                            best_model = hmm_model
+                            score = model_n_score
+                    except:
+                        pass
+                    
+            except:
+                pass
+
+        else:
+            print('len:', len(self.sequences))
+                        
+        if(len(self.sequences) == 1):
+            print ('!!!! ireached this code') # code is not reached in first unit test?
+            for n in range(self.min_n_components, self.max_n_components + 1):
+                log_total = []
+                hmm_model = None
+                model_n_score = float('-inf')
+                
+                try:
+                    hmm_model =GaussianHMM(n_components = n,
+                                            covariance_type="diag",
+                                            n_iter=1000,
+                                            random_state = self.random_state,
+                                            verbose=False).fit(self.X, self.lengths)
+                    logL = hmm_model.score(self.X, self.lengths) 
+                    log_total.append(logL)
+                                
+                    # calcs more often but i don't need to wory about empty scores
+                    model_n_score = np.mean(log_total) 
+                    
+                except:
+                    pass
+                
+                if(model_n_score > score):
+                    best_model = hmm_model
+                    score = model_n_score
+                
+        if best_model is None:
+            print('default')
+            return self.base_model(self.n_constant)
+        
+        return best_model
