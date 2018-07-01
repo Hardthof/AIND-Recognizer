@@ -76,9 +76,33 @@ class SelectorBIC(ModelSelector):
         """
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-        # TODO implement model selection based on BIC scores
-        raise NotImplementedError
+        best_score = float('inf')
+        best_model = None
+        
+        for n in range (self.min_n_components, self.max_n_components + 1):
+            try:
+                hmm_model = GaussianHMM(n_components = n,
+                        covariance_type="diag",
+                        n_iter=1000,
+                        random_state = self.random_state,
+                        verbose=False)    
+                logL = hmm_model.score(self.X, self.lengths)
+                logN = np.log(len(self.X))
+                
+                p = n ** 2 + 2 * n * hmm_model.n_features - 1
+                BIC = -2 * logL + p * logN
 
+                if BIC < best_score:
+                    best_model = hmm_model
+                    best_score = BIC
+            except:
+                pass
+            
+        if best_model is None:
+            print('default')
+            return self.base_model(self.n_constant)
+            
+        return best_model
 
 class SelectorDIC(ModelSelector):
     ''' select best model based on Discriminative Information Criterion
@@ -94,7 +118,41 @@ class SelectorDIC(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # TODO implement model selection based on DIC scores
-        raise NotImplementedError
+        
+        best_score = float('-inf')
+        best_model = None
+        
+        for n in range (self.min_n_components, self.max_n_components + 1):
+            try:
+                hmm_model = GaussianHMM(n_components = n,
+                        covariance_type="diag",
+                        n_iter=1000,
+                        random_state = self.random_state,
+                        verbose=False)    
+                logL = hmm_model.score(self.X, self.lengths)
+                sum_logL_ni = float("-inf")
+                for word in self.words:
+                    if word == self.this_word:    
+                        continue
+                    
+                    x_ni, lengths_ni = self.hwords[word]
+                    logL_ni = hmm_model.score(x_ni, lengths_ni)
+                    sum_logL_ni += logL_ni
+                
+                DIC = logL - sum_logL_ni / (len(self.words)-1)
+                
+                if DIC > best_score:
+                    best_model = hmm_model
+                    best_score = DIC                    
+                
+            except:
+                pass
+            
+        if best_model is None:
+            return self.base_model(self.n_constant)
+        
+        return best_model       
+        
 
 
 class SelectorCV(ModelSelector):
@@ -178,7 +236,6 @@ class SelectorCV(ModelSelector):
                     score = model_n_score
                 
         if best_model is None:
-            print('default')
             return self.base_model(self.n_constant)
         
         return best_model
