@@ -77,7 +77,7 @@ class SelectorBIC(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         best_score = float('inf')
-        best_model = None
+        best_n = self.n_constant
         
         for n in range (self.min_n_components, self.max_n_components + 1):
             try:
@@ -93,15 +93,13 @@ class SelectorBIC(ModelSelector):
                 BIC = -2 * logL + p * logN
 
                 if BIC < best_score:
-                    best_model = hmm_model
+                    best_n = n
                     best_score = BIC
             except:
                 pass
             
-        if best_model is None:
-            return self.base_model(self.n_constant)
-            
-        return best_model
+        return self.base_model(best_n)
+
 
 class SelectorDIC(ModelSelector):
     ''' select best model based on Discriminative Information Criterion
@@ -119,7 +117,7 @@ class SelectorDIC(ModelSelector):
         # TODO implement model selection based on DIC scores
         
         best_score = float('-inf')
-        best_model = None
+        best_n = self.n_constant
         
         for n in range (self.min_n_components, self.max_n_components + 1):
             try:
@@ -129,28 +127,29 @@ class SelectorDIC(ModelSelector):
                         random_state = self.random_state,
                         verbose=False)    
                 logL = hmm_model.score(self.X, self.lengths)
-                sum_logL_ni = float("-inf")
+                sum_logL_ni = 0.0
                 for word in self.words:
                     if word == self.this_word:    
                         continue
                     
                     x_ni, lengths_ni = self.hwords[word]
-                    logL_ni = hmm_model.score(x_ni, lengths_ni)
-                    sum_logL_ni += logL_ni
+                    
+                    try:
+                        logL_ni = hmm_model.score(x_ni, lengths_ni)
+                        sum_logL_ni += logL_ni
+                    except:
+                        pass
                 
                 DIC = logL - sum_logL_ni / (len(self.words)-1)
                 
                 if DIC > best_score:
-                    best_model = hmm_model
+                    best_n = n
                     best_score = DIC                    
                 
             except:
                 pass
             
-        if best_model is None:
-            return self.base_model(self.n_constant)
-        
-        return best_model       
+        return self.base_model(best_n)      
         
 
 
@@ -162,7 +161,6 @@ class SelectorCV(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         score = float('-inf')
-        best_model = None
         best_n = self.n_constant
         
         if(len(self.sequences) > 1):
@@ -172,9 +170,7 @@ class SelectorCV(ModelSelector):
                 
                 for n in range(self.min_n_components, self.max_n_components + 1):
                     try:
-                        #print ("A:", n)
                         log_total = []
-                        hmm_model = None
                         model_n_score = float('-inf')
                         
                         for cv_train_idx, cv_test_idx in fold.split(self.sequences):
@@ -194,7 +190,6 @@ class SelectorCV(ModelSelector):
                                 model_n_score = np.mean(log_total)       
                                 
                             except:
-                                #print('Error in GaussianHMM')
                                 pass
                             
                         if(model_n_score > score):
@@ -206,8 +201,6 @@ class SelectorCV(ModelSelector):
             except:
                 pass
 
-        else:
-            print('len:', len(self.sequences))
                         
         if(len(self.sequences) == 1):
             print ('!!!! ireached this code') # code is not reached in first unit test?
@@ -228,8 +221,6 @@ class SelectorCV(ModelSelector):
                         score = logL
                     
                 except:
-                    pass
-                
-        best_model = self.base_model(best_n)
+                    pass       
         
-        return best_model
+        return self.base_model(best_n)
