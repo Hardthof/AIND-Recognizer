@@ -99,7 +99,6 @@ class SelectorBIC(ModelSelector):
                 pass
             
         if best_model is None:
-            print('default')
             return self.base_model(self.n_constant)
             
         return best_model
