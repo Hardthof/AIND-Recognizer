@@ -34,7 +34,7 @@ class ModelSelector(object):
     def base_model(self, num_states):
         # with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
-        # warnings.filterwarnings("ignore", category=RuntimeWarning)
+        warnings.filterwarnings("ignore", category=RuntimeWarning)
         try:
             hmm_model = GaussianHMM(n_components=num_states, covariance_type="diag", n_iter=1000,
                                     random_state=self.random_state, verbose=False).fit(self.X, self.lengths)
@@ -77,15 +77,11 @@ class SelectorBIC(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         best_score = float('inf')
-        best_n = self.n_constant
+        best_model = None
         
         for n in range (self.min_n_components, self.max_n_components + 1):
             try:
-                hmm_model = GaussianHMM(n_components = n,
-                        covariance_type="diag",
-                        n_iter=1000,
-                        random_state = self.random_state,
-                        verbose=False)    
+                hmm_model = self.base_model(n)    
                 logL = hmm_model.score(self.X, self.lengths)
                 logN = np.log(len(self.X))
                 
@@ -93,13 +89,15 @@ class SelectorBIC(ModelSelector):
                 BIC = -2 * logL + p * logN
 
                 if BIC < best_score:
-                    best_n = n
+                    best_model = hmm_model
                     best_score = BIC
             except:
                 pass
             
-        return self.base_model(best_n)
+        if best_model == None:
+            return self.base_model(self.n_constant)
 
+        return best_model
 
 class SelectorDIC(ModelSelector):
     ''' select best model based on Discriminative Information Criterion
@@ -117,15 +115,11 @@ class SelectorDIC(ModelSelector):
         # TODO implement model selection based on DIC scores
         
         best_score = float('-inf')
-        best_n = self.n_constant
+        best_model = None
         
         for n in range (self.min_n_components, self.max_n_components + 1):
             try:
-                hmm_model = GaussianHMM(n_components = n,
-                        covariance_type="diag",
-                        n_iter=1000,
-                        random_state = self.random_state,
-                        verbose=False)    
+                hmm_model = self.base_model(n) 
                 logL = hmm_model.score(self.X, self.lengths)
                 sum_logL_ni = 0.0
                 for word in self.words:
@@ -143,13 +137,16 @@ class SelectorDIC(ModelSelector):
                 DIC = logL - sum_logL_ni / (len(self.words)-1)
                 
                 if DIC > best_score:
-                    best_n = n
+                    best_model = hmm_model
                     best_score = DIC                    
                 
             except:
                 pass
             
-        return self.base_model(best_n)      
+        if best_model == None:
+            return self.base_model(self.n_constant)
+
+        return best_model     
         
 
 
@@ -178,11 +175,7 @@ class SelectorCV(ModelSelector):
                             test_X, test_lengths = combine_sequences(cv_test_idx, self.sequences)
         
                             try:
-                                hmm_model = GaussianHMM(n_components = n,
-                                                        covariance_type="diag",
-                                                        n_iter=1000,
-                                                        random_state = self.random_state,
-                                                        verbose=False).fit(train_X, train_lengths)
+                                hmm_model = self.base_model(n).fit(train_X, train_lengths)
                                 logL = hmm_model.score(test_X, test_lengths)
                                 log_total.append(logL)
                                 
@@ -209,11 +202,7 @@ class SelectorCV(ModelSelector):
                 model_n_score = float('-inf')
                 
                 try:
-                    hmm_model =GaussianHMM(n_components = n,
-                                            covariance_type="diag",
-                                            n_iter=1000,
-                                            random_state = self.random_state,
-                                            verbose=False).fit(self.X, self.lengths)
+                    hmm_model = self.base_model(n).fit(self.X, self.lengths)
                     logL = hmm_model.score(self.X, self.lengths) 
                     
                     if(logL > score):
