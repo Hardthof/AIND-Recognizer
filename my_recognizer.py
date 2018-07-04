@@ -22,4 +22,19 @@ def recognize(models: dict, test_set: SinglesData):
     guesses = []
     # TODO implement the recognizer
     # return probabilities, guesses
-    raise NotImplementedError
+    
+    test_seq = list(test_set.get_all_Xlengths().values())
+    for test_x, test_len in test_seq:
+        p = {}
+        
+        for word, model in models.items():
+            try:
+                logL = model.score(test_x, test_len)
+                p[word] = logL
+            except:
+                p[word] = float("-inf") #model score failed
+                
+        probabilities.append(p)
+        guesses.append(max([(v,k) for k,v in p.items()])[1]) # get best comb
+
+    return (probabilities, guesses)
